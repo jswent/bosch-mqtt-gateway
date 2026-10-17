@@ -44,6 +44,7 @@ class Recorder:
         self.messages = []
         self.allows = Publisher(None, config.gateway).allows
         self.hook = None
+        self.disconnected = asyncio.Event()
 
     async def publish(self, topic, payload, **kwargs):
         assert self.allows(topic)
@@ -51,6 +52,11 @@ class Recorder:
         self.messages.append((topic, payload))
         if self.hook:
             self.hook(topic, payload)
+
+    async def wait_disconnected(self):
+        await self.disconnected.wait()
+        self.disconnected.clear()
+        raise ConnectionError("injected broker disconnect")
 
     @asynccontextmanager
     async def context(self, *args):
@@ -204,3 +210,15 @@ async def test_removed_entities_emit_retained_tombstones(config):
         assert tombstones <= previous
     finally:
         await shutdown(next_gateway, next_task)
+
+
+async def test_idle_broker_loss_reconnects_without_waiting_for_heartbeat(config):
+    gateway, recorder, task = await launch(config)
+    try:
+        before = FakePanel.instances[-1]
+        recorder.disconnected.set()
+        await until(lambda: before.stopped, timeout=0.2)
+        await until(lambda: gateway.ready and FakePanel.instances[-1] is not before)
+        assert gateway.metrics.reconnections == 1
+    finally:
+        await shutdown(gateway, task)

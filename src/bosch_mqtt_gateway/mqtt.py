@@ -63,6 +63,11 @@ class Publisher:
         self._gateway = gateway
         self.offline_confirmed = False
 
+    async def wait_disconnected(self) -> None:
+        """Observe transport loss without subscribing to any MQTT topic."""
+        await asyncio.shield(self._client._disconnected)
+        raise aiomqtt.MqttError("MQTT transport disconnected")
+
     def allows(self, topic: str) -> bool:
         base = self._gateway.topic_prefix
         if topic in (f"{base}/availability", f"{base}/panel_availability"):

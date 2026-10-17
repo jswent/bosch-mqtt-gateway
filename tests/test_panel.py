@@ -118,7 +118,8 @@ async def test_pin_failure_sends_no_protocol_bytes(monkeypatch):
     assert panel.snapshot() == ()
 
 
-async def test_verified_pin_precedes_auth_and_snapshot(monkeypatch):
+@pytest.mark.parametrize("serial", [123, 0, None])
+async def test_verified_pin_precedes_auth_and_snapshot(monkeypatch, serial):
     transport = Transport()
     observed = []
 
@@ -135,7 +136,7 @@ async def test_verified_pin_precedes_auth_and_snapshot(monkeypatch):
         observed.append("auth")
 
     async def load(panel, selector):
-        panel.serial_number = 123
+        panel.serial_number = serial
         panel.points = {1: Point("Point", POINT_STATUS.NORMAL)}
         panel.areas = {1: Area("Area", AREA_STATUS.DISARMED)}
         panel._supports_status = False
@@ -155,6 +156,13 @@ async def test_verified_pin_precedes_auth_and_snapshot(monkeypatch):
         on_state=lambda s: None,
         on_availability=events.append,
     )
+    if not serial:
+        with pytest.raises(PanelError, match="serial identity"):
+            await panel.start()
+        assert events == []
+        assert panel.snapshot() == ()
+        assert transport.aborted
+        return
     await panel.start()
     assert observed == ["basic", "auth"]
     assert panel.info.serial == "123"
@@ -286,3 +294,54 @@ async def test_alarm_clear_during_inflight_detail_is_reconciled():
     await asyncio.gather(*owner._tasks)
     assert priority not in area.alarms_ids
     await owner.stop()
+
+
+@pytest.mark.parametrize(
+    "code,response",
+    [
+        (CMD.PRODUCT_SERIAL, b""),
+        (CMD.PRODUCT_SERIAL, b"12345"),
+        (CMD.REQUEST_PANEL_SYSTEM_STATUS, b"123456"),
+        (CMD.WHAT_ARE_YOU, b"123"),
+        (CMD.ALARM_MEMORY_SUMMARY, b"\x00" * 19),
+        (CMD.OUTPUT_STATUS, b""),
+        (CMD.ALARM_MEMORY_DETAIL, b"1234"),
+    ],
+)
+async def test_truncated_reads_abort_instead_of_becoming_zero(code, response):
+    owner = adapter()
+    panel = owner._panel = _ReadOnlyPanel(owner)
+    connection = panel._connection = ReadOnlyConnection(lambda d: None, lambda: None)
+    transport = Transport()
+    connection.connection_made(transport)
+    task = asyncio.create_task(panel._send_command(code))
+    await asyncio.sleep(0)
+    connection.data_received(bytes([1, len(response) + 1, 0xFE]) + response)
+    with pytest.raises(PanelError, match="Incomplete"):
+        await task
+    assert transport.aborted
+
+
+@pytest.mark.parametrize(
+    "response",
+    [b"", b"\x00\x01", b"\x00\x01\x03", b"\x00\x01\x03\x00\x01\x03", b"\x00\x01\x03\x00\x03\x03"],
+)
+def test_partial_or_duplicate_point_status_is_rejected(response):
+    from bosch_mqtt_gateway.panel import _validate_read_response
+
+    with pytest.raises(PanelError):
+        _validate_read_response(CMD.POINT_STATUS, b"\x00\x01\x00\x02", response)
+
+
+def test_complete_reordered_status_and_empty_terminators_remain_valid():
+    from bosch_mqtt_gateway.panel import _validate_read_response
+
+    _validate_read_response(CMD.POINT_STATUS, b"\x00\x01\x00\x02", b"\x00\x02\x02\x00\x01\x03")
+    for command in (
+        CMD.REQUEST_CONFIGURED_POINTS,
+        CMD.POINT_TEXT,
+        CMD.ALARM_MEMORY_DETAIL,
+        CMD.SET_SUBSCRIPTION,
+        CMD.LOGIN_REMOTE_USER,
+    ):
+        _validate_read_response(command, b"", b"")

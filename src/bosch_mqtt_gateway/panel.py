@@ -62,6 +62,28 @@ class PanelError(RuntimeError):
     """A safe error suitable for operational logs (never contains wire data)."""
 
 
+def _validate_read_response(code: int, request: bytes, response: bytes) -> None:
+    """Reject truncated reads before upstream can interpret missing bytes as zero.
+
+    Empty entity-configuration bitmaps, paginated text terminators and alarm
+    detail terminators remain valid. Authentication/subscription ACKs may be empty.
+    """
+    minimum = {0x01: 14, 0x4A: 6, 0x20: 7, 0x08: max(PRIORITIES.TEXT) * 2, 0x31: 1}
+    if code in minimum and len(response) < minimum[code]:
+        raise PanelError("Incomplete panel read response")
+    if code == 0x23 and len(response) % 5:
+        raise PanelError("Incomplete alarm detail response")
+    if code in (0x26, 0x38, 0x2C):
+        id_size = 1 if code == 0x2C else 2
+        record_size = id_size + 1
+        expected = {request[i : i + id_size] for i in range(0, len(request), id_size)}
+        if len(response) % record_size:
+            raise PanelError("Incomplete entity status response")
+        returned = [bytes(response[i : i + id_size]) for i in range(0, len(response), record_size)]
+        if set(returned) != expected or len(returned) != len(expected):
+            raise PanelError("Panel status response omitted or duplicated an entity")
+
+
 class ReadOnlyConnection(Connection):
     """Frame boundary: deny unknown commands and never log frames or credentials."""
 
@@ -149,6 +171,7 @@ class _ReadOnlyPanel(Panel):
         try:
             async with asyncio.timeout(self.owner._timeout):
                 result = await super()._send_command(code, data)
+            _validate_read_response(code, bytes(data), result)
             self._last_msg = datetime.now()
             return result
         except BaseException:
@@ -303,7 +326,7 @@ class PanelAdapter:
                 await panel._basicinfo()
                 await panel._authenticate()
                 await panel.load(Panel.LOAD_EXTENDED_INFO | Panel.LOAD_ENTITIES)
-                if panel.serial_number is None:
+                if panel.serial_number is None or panel.serial_number <= 0:
                     raise PanelError("Panel does not provide a serial identity")
                 await panel._load_status()
                 if panel._set_subscription_supported_format:

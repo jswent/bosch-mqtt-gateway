@@ -140,6 +140,13 @@ class Gateway:
             finally:
                 queue.task_done()
 
+    async def _watch_broker(self, publisher: Publisher) -> None:
+        try:
+            await publisher.wait_disconnected()
+        finally:
+            self.ready = False
+            self.broker_connected = False
+
     async def _heartbeat(self, publisher: Publisher) -> None:
         while True:
             await asyncio.sleep(self.config.gateway.heartbeat_interval)
@@ -222,10 +229,15 @@ class Gateway:
                     group.create_task(self._watch(self._panel_down, PanelDisconnected)),
                     group.create_task(self._watch(self._overflow, QueueOverflow)),
                     group.create_task(self._heartbeat(publisher)),
+                    group.create_task(self._watch_broker(publisher)),
                 ]
                 # Catch up deltas that arrived while retained discovery was being published.
                 async with asyncio.timeout(cfg.timeout):
                     await asyncio.gather(*(queue.join() for queue in self._queues))
+                if self._stop.is_set():
+                    for task in workers + monitors:
+                        task.cancel()
+                    return
                 if self._panel_down.is_set() or self._overflow.is_set():
                     raise PanelDisconnected()
                 await publisher.publish(
