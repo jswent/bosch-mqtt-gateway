@@ -27,7 +27,6 @@ jobs:
         with:
           version: '0.9.3'
       - run: sh dev/check-lifecycle.sh
-      - run: .venv/bin/python dev/benchmark.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: success()
         with:

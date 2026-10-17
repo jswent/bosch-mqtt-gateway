@@ -40,7 +40,6 @@ uv run --frozen pytest --cov=bosch_mqtt_gateway --cov-report=term-missing
 uv run --frozen ruff check .
 uv run --frozen mypy src/bosch_mqtt_gateway
 sh dev/check-lifecycle.sh
-.venv/bin/python dev/benchmark.py
 ```
 
 The lifecycle script bootstraps disposable secrets, builds the stack, onboards HA
@@ -48,7 +47,8 @@ and configures MQTT through real HA APIs, then checks discovery, ACL enforcement
 inert alarm actions, transport failure, crash will, restart and retained recovery.
 The benchmark verifies delivery of 600-point bursts and sustained transitions,
 measuring panel-simulator emission to HA `state_changed` timing. Reports are
-written under gitignored `dev/generated`.
+written under gitignored `dev/generated`. Run `.venv/bin/python dev/benchmark.py`
+independently to repeat the load test on a running stack.
 
 Local endpoints are bound only to loopback:
 
@@ -77,14 +77,14 @@ separate gateway and HA principals. Keep panel credentials out of HA. Restrict
 network access so only the gateway VM can reach Mode 2.
 
 Install the locked environment, configure independently verified panel trust,
-and validate before starting:
+and configure it before starting:
 
 ```sh
 uv sync --frozen --no-dev
-.venv/bin/bosch-mqtt-gateway --config /etc/bosch-mqtt-gateway/config.toml --check-config
 ```
 
-The production service obtains secrets through systemd credentials. HTTP defaults
+The production service obtains secrets through systemd credentials and runs
+`--check-config` automatically before startup, when those credentials are available. HTTP defaults
 to loopback; access protected diagnostics through an SSH tunnel. The persistent
 state directory contains the discovery cleanup journal and must survive upgrades.
 Do not run two instances with the same gateway ID or MQTT namespace.
