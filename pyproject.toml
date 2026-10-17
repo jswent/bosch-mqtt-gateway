@@ -1,0 +1,53 @@
+[project]
+name = "bosch-mqtt-gateway"
+version = "0.1.0"
+description = "A publish-only, verified-TLS Bosch Mode 2 gateway for Home Assistant MQTT"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "bosch-alarm-mode2==0.4.11",
+  "aiomqtt>=2.4,<3",
+  "fastapi>=0.115,<1",
+  "pydantic>=2.10,<3",
+  "uvicorn>=0.34,<1",
+]
+
+[project.scripts]
+bosch-mqtt-gateway = "bosch_mqtt_gateway.main:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "pytest-cov>=6,<8",
+  "httpx>=0.28,<1", "ruff>=0.11,<1", "mypy>=1.15,<2",
+  "cryptography>=44,<48", "websockets>=14,<17", "pip-audit>=2.9,<3",
+  "jinja2>=3.1,<4",
+  "aiohttp>=3.12.15,<4",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["integration: requires local development services", "performance: scale and latency checks"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ASYNC109", "ASYNC110"]
+"dev/*" = ["ASYNC109", "ASYNC110"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+warn_unused_ignores = true
+
