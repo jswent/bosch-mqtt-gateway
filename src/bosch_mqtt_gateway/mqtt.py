@@ -133,6 +133,8 @@ async def connect_publisher(
         max_concurrent_outgoing_calls=gateway.publish_workers,
         socket_options=[(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)],
     ) as client:
+        # Normal bounded parallelism must not emit aiomqtt backlog warnings.
+        client.pending_calls_threshold = gateway.publish_workers
         publisher = Publisher(client, gateway)
         try:
             yield publisher
