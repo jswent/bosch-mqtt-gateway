@@ -1,0 +1,35 @@
+# Copy to /etc/bosch-mqtt-gateway/config.toml; root-owned, readable by service group.
+[gateway]
+id = "bosch_dev" # Replace in lockstep with the broker ACL discovery identifier.
+topic_prefix = "bosch/dev" # Replace in lockstep with broker ACL telemetry namespace.
+discovery_prefix = "homeassistant"
+state_dir = "/var/lib/bosch-mqtt-gateway"
+queue_capacity = 8192
+publish_workers = 16
+
+[panel]
+host = "192.0.2.10" # Reserved example; replace with your panel's restricted IP.
+port = 7700
+automation_code_file = "/run/credentials/bosch-mqtt-gateway.service/panel_code"
+ca_file = "/etc/bosch-mqtt-gateway/panel-ca.crt"
+server_name = "alarm-panel.example.internal"
+# Alternatively remove ca_file and set certificate_sha256 to an independently
+# verified 64-character SHA256 hex certificate fingerprint. Never TOFU.
+timeout = 60.0
+
+[mqtt]
+host = "mqtt.example.internal"
+port = 8883
+username = "gateway"
+password_file = "/run/credentials/bosch-mqtt-gateway.service/mqtt_password"
+ca_file = "/etc/bosch-mqtt-gateway/broker-ca.crt"
+keepalive = 15
+
+[http]
+host = "127.0.0.1"
+port = 8080
+token_file = "/run/credentials/bosch-mqtt-gateway.service/debug_token"
+
+[logging]
+level = "INFO"
+format = "json"

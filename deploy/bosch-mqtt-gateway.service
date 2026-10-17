@@ -1,0 +1,50 @@
+[Unit]
+Description=Read-only Bosch Mode 2 MQTT gateway
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=bosch-gateway
+Group=bosch-gateway
+ExecStartPre=/opt/bosch-mqtt-gateway/.venv/bin/bosch-mqtt-gateway --config /etc/bosch-mqtt-gateway/config.toml --check-config
+ExecStart=/opt/bosch-mqtt-gateway/.venv/bin/bosch-mqtt-gateway --config /etc/bosch-mqtt-gateway/config.toml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+StateDirectory=bosch-mqtt-gateway
+StateDirectoryMode=0700
+LoadCredential=panel_code:/etc/bosch-mqtt-gateway/secrets/panel_code
+LoadCredential=mqtt_password:/etc/bosch-mqtt-gateway/secrets/mqtt_password
+LoadCredential=debug_token:/etc/bosch-mqtt-gateway/secrets/debug_token
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+LimitNOFILE=1024
+TasksMax=64
+MemoryMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

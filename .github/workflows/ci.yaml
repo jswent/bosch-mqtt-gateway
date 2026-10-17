@@ -1,0 +1,40 @@
+name: gateway
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.9.3'
+      - run: uv sync --frozen --python ${{ matrix.python }}
+      - run: uv run --frozen ruff check .
+      - run: uv run --frozen ruff format --check .
+      - run: uv run --frozen mypy src/bosch_mqtt_gateway
+      - run: uv run --frozen pytest --cov=bosch_mqtt_gateway --cov-report=term-missing --cov-fail-under=90
+  lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.9.3'
+      - run: sh dev/check-lifecycle.sh
+      - run: .venv/bin/python dev/benchmark.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success()
+        with:
+          name: validation-metrics
+          path: |
+            dev/generated/e2e-results.json
+            dev/generated/benchmark-results.json
+          # Never upload generated certificates, credentials, HA tokens, or full directory.
+      - run: docker compose down -v
+        if: always()

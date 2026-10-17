@@ -1,0 +1,12 @@
+# Change bosch/dev and bosch_dev together with production gateway configuration.
+user gateway
+topic write bosch/dev/state/#
+topic write bosch/dev/availability
+topic write bosch/dev/panel_availability
+topic write homeassistant/+/bosch_dev/+/config
+
+user homeassistant
+topic read bosch/dev/#
+topic read homeassistant/#
+topic write homeassistant/status
+# Default deny: no gateway subscriptions, no command publishes by either user.
