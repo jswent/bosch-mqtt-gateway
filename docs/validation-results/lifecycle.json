@@ -1,0 +1,21 @@
+{
+  "discovered_points": 600,
+  "gateway_command_denied": true,
+  "homeassistant_command_denied": true,
+  "gateway_no_read_delivery": true,
+  "latency_ms": {
+    "samples": 100,
+    "p50": 1.289984,
+    "p95": 1.95712,
+    "max": 2.67392,
+    "client_receive_p50": 3.732
+  },
+  "ha_alarm_service_http_status": 200,
+  "ha_alarm_service_inert": true,
+  "disconnect_recovered": true,
+  "malformed_recovered": true,
+  "graceful_shutdown_recovered": true,
+  "crash_will_recovered": true,
+  "broker_restart_recovered": true,
+  "ha_restart_retained_recovered": true
+}

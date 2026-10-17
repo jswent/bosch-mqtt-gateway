@@ -1,0 +1,237 @@
+{
+  "measured_at": "2026-10-17T20:49:16.029298+00:00",
+  "ha_version": "2026.10.2",
+  "points": 600,
+  "http_concurrency": 16,
+  "sustained_rounds": 10,
+  "requested": 6600,
+  "delivered": 6600,
+  "elapsed_seconds": 8.908,
+  "delivered_events_per_second": 740.91,
+  "pipeline_latency_ms": {
+    "samples": 6600,
+    "p50": 0.349,
+    "p95": 2.555,
+    "p99": 94.455,
+    "max": 168.333,
+    "min": 0.182
+  },
+  "burst_latency_ms": {
+    "samples": 600,
+    "p50": 0.382,
+    "p95": 2.06,
+    "p99": 5.693,
+    "max": 8.638,
+    "min": 0.182
+  },
+  "sustained_latency_ms": {
+    "samples": 6000,
+    "p50": 0.346,
+    "p95": 2.628,
+    "p99": 103.626,
+    "max": 168.333,
+    "min": 0.182
+  },
+  "gateway_counter_deltas": {
+    "events_received": 6600,
+    "events_published": 6600,
+    "queue_overflows": 0,
+    "reconnections": 0,
+    "failures": 0
+  },
+  "gateway_final_ready": true,
+  "gateway_final_metrics": {
+    "uptime_seconds": 44.7,
+    "events_received": 6600,
+    "events_published": 6600,
+    "events_deduplicated": 0,
+    "queue_overflows": 0,
+    "reconnections": 0,
+    "failures": 0,
+    "publish_latency_samples": 4096,
+    "publish_latency_p50_ms": 1.547,
+    "publish_latency_p95_ms": 3.028,
+    "publish_latency_p99_ms": 4.229,
+    "publish_latency_max_ms": 42.32182900159387
+  },
+  "p99_regression_threshold_ms": 250,
+  "p99_regression_passed": true,
+  "rounds": [
+    {
+      "round": 0,
+      "kind": "burst",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.811,
+      "completion_seconds": 0.812,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.382,
+        "p95": 2.06,
+        "p99": 5.693,
+        "max": 8.638,
+        "min": 0.182
+      }
+    },
+    {
+      "round": 1,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.801,
+      "completion_seconds": 0.802,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.341,
+        "p95": 1.408,
+        "p99": 2.73,
+        "max": 4.792,
+        "min": 0.184
+      }
+    },
+    {
+      "round": 2,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.795,
+      "completion_seconds": 0.796,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.339,
+        "p95": 1.703,
+        "p99": 2.498,
+        "max": 3.225,
+        "min": 0.218
+      }
+    },
+    {
+      "round": 3,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.854,
+      "completion_seconds": 0.854,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.373,
+        "p95": 2.773,
+        "p99": 12.082,
+        "max": 13.379,
+        "min": 0.198
+      }
+    },
+    {
+      "round": 4,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.868,
+      "completion_seconds": 0.912,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.352,
+        "p95": 1.28,
+        "p99": 3.352,
+        "max": 43.04,
+        "min": 0.214
+      }
+    },
+    {
+      "round": 5,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.81,
+      "completion_seconds": 0.811,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.33,
+        "p95": 1.811,
+        "p99": 2.793,
+        "max": 4.018,
+        "min": 0.195
+      }
+    },
+    {
+      "round": 6,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.809,
+      "completion_seconds": 0.809,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.332,
+        "p95": 1.515,
+        "p99": 2.773,
+        "max": 5.038,
+        "min": 0.182
+      }
+    },
+    {
+      "round": 7,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.804,
+      "completion_seconds": 0.804,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.348,
+        "p95": 1.507,
+        "p99": 2.664,
+        "max": 3.344,
+        "min": 0.189
+      }
+    },
+    {
+      "round": 8,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.798,
+      "completion_seconds": 0.798,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.372,
+        "p95": 140.94,
+        "p99": 163.636,
+        "max": 168.333,
+        "min": 0.2
+      }
+    },
+    {
+      "round": 9,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.842,
+      "completion_seconds": 0.842,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.349,
+        "p95": 5.74,
+        "p99": 17.858,
+        "max": 23.705,
+        "min": 0.2
+      }
+    },
+    {
+      "round": 10,
+      "kind": "sustained",
+      "requested": 600,
+      "delivered": 600,
+      "injection_seconds": 0.664,
+      "completion_seconds": 0.664,
+      "latency_ms": {
+        "samples": 600,
+        "p50": 0.321,
+        "p95": 0.724,
+        "p99": 2.279,
+        "max": 2.991,
+        "min": 0.187
+      }
+    }
+  ]
+}

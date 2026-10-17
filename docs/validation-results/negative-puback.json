@@ -1,0 +1,4 @@
+{
+  "negative_puback_rejected": true,
+  "disconnect_with_will_retained_offline": true
+}
