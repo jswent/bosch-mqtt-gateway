@@ -69,3 +69,81 @@ def test_plaintext_config_preflight(tmp_path, capsys):
         main()
     create.assert_not_called()
     assert capsys.readouterr().out == "Configuration and secret files are valid\n"
+
+
+@pytest.mark.parametrize(
+    "old,new,expected",
+    [
+        (
+            "[mqtt]\n",
+            '[mqtt]\ntransport = "plaintext"\nca_file = "SECRET-CA-PATH"\n',
+            "Configuration error: mqtt: plaintext transport cannot include ca_file, cert_file "
+            "or key_file; remove them or select tls",
+        ),
+        (
+            'certificate_sha256 = "' + "ab" * 32 + '"',
+            'certificate_sha256 = "SECRET-PIN"',
+            "Configuration error: panel.certificate_sha256: certificate_sha256 must be exactly "
+            "64 hexadecimal characters",
+        ),
+        (
+            'username = "gateway"\n',
+            "",
+            "Configuration error: mqtt.username: required field is missing",
+        ),
+        (
+            "[mqtt]\n",
+            '[mqtt]\n"SECRET\\n\\u001bKEY" = "SECRET-VALUE"\n',
+            "Configuration error: mqtt.(unknown field): unrecognized field; remove it or use a "
+            "documented configuration field",
+        ),
+        (
+            "[mqtt]\n",
+            '[mqtt]\nport = "SECRET-WRONG-TYPE"\n',
+            "Configuration error: mqtt.port: must be an integer",
+        ),
+        (
+            "[gateway]\n",
+            '"SECRET\\nROOT" = "SECRET-VALUE"\n[gateway]\n',
+            "Configuration error: (unknown field): unrecognized field; remove it or use a "
+            "documented configuration field",
+        ),
+    ],
+)
+def test_safe_actionable_schema_errors(tmp_path, capsys, old, new, expected):
+    path = write_config(tmp_path)
+    path.write_text(path.read_text().replace(old, new))
+    with patch.object(sys, "argv", ["gateway", "--config", str(path), "--check-config"]):
+        with pytest.raises(SystemExit) as error:
+            main()
+    assert error.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert output.err == expected + "\n"
+    assert "SECRET" not in output.err
+    assert "\x1b" not in output.err
+
+
+@pytest.mark.parametrize(
+    "change,expected",
+    [
+        ("secret", "mqtt.password_file (FileNotFoundError)"),
+        ("ca", "mqtt TLS (FileNotFoundError)"),
+    ],
+)
+def test_file_errors_identify_operation_without_path(tmp_path, capsys, change, expected):
+    path = write_config(tmp_path)
+    if change == "secret":
+        path.write_text(path.read_text().replace(f"{tmp_path}/mqtt", f"{tmp_path}/SECRET-missing"))
+    else:
+        path.write_text(
+            path.read_text().replace("[mqtt]\n", f'[mqtt]\nca_file = "{tmp_path}/SECRET-CA"\n')
+        )
+    with patch.object(sys, "argv", ["gateway", "--config", str(path), "--check-config"]):
+        with pytest.raises(SystemExit) as error:
+            main()
+    assert error.value.code == 2
+    output = capsys.readouterr().err
+    assert expected in output
+    assert "SECRET" not in output
+    assert str(tmp_path) not in output

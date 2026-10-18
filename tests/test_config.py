@@ -109,7 +109,7 @@ def test_mqtt_transport_is_explicit_and_does_not_change_port():
 @pytest.mark.parametrize("option", ["ca_file", "cert_file", "key_file"])
 @pytest.mark.parametrize("value", ["certificate.pem", ""])
 def test_plaintext_rejects_tls_settings(option, value):
-    with pytest.raises(ValidationError, match="cannot use TLS"):
+    with pytest.raises(ValidationError, match="cannot include"):
         MQTTConfig(
             host="broker",
             username="gateway",
@@ -123,3 +123,23 @@ def test_plaintext_rejects_tls_settings(option, value):
 def test_unknown_mqtt_transport_rejected():
     with pytest.raises(ValidationError):
         MQTTConfig(host="broker", username="gateway", password_file="secret", transport="auto")
+
+
+def test_safe_validation_formatter_never_uses_raw_message_or_context():
+    from bosch_mqtt_gateway.config import safe_validation_errors
+
+    error = ValidationError.from_exception_data(
+        "SECRET-model-name",
+        [
+            {
+                "type": "value_error",
+                "loc": ("mqtt", "SECRET\n\x1bfield"),
+                "input": "SECRET-input",
+                "ctx": {"error": ValueError("SECRET-context")},
+            }
+        ],
+    )
+    assert safe_validation_errors(error) == (
+        "Configuration error: mqtt.(unknown field): invalid value; "
+        "check the documented configuration requirements",
+    )

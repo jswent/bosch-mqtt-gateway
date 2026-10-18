@@ -49,6 +49,46 @@ The application logs the selected transport at startup. The default Compose lab
 continues to use TLS; `dev/probe_plaintext.py` starts a separate disposable local
 broker to validate the opt-in without changing that stack.
 
+## Updating the installed application
+
+A production non-editable installation needs to be refreshed after pulling source
+changes. From the installed repository, synchronize the locked environment and
+explicitly reinstall the gateway package so a cached wheel cannot leave the old
+code running:
+
+```sh
+git pull --ff-only
+uv sync --frozen --no-dev --no-editable --python /usr/bin/python3 \
+  --no-managed-python --reinstall-package bosch-mqtt-gateway
+```
+
+Run installation with the same root ownership as the initial deployment. In the
+Debian walkthrough, the `uv` executable is `/opt/uv/bin/uv`. Restart the service and
+check readiness after updating. Preserve configuration, credentials and
+`/var/lib/bosch-mqtt-gateway` across upgrades.
+
+## Diagnosing startup
+
+`243/CREDENTIALS` comes from systemd before the application starts. Check the
+unit's `LoadCredential` source paths and the existence/type/ownership of all three
+files. Root-only `0600` source files are intentional; do not make them readable by
+other users to troubleshoot this failure. A temporary `systemd-run` credential
+probe can distinguish credential setup from application validation without
+printing secret contents.
+
+Application validation failures name a schema field or section and a controlled
+explanation. Values, arbitrary unknown field names and raw validator messages are
+never printed. For example, plaintext MQTT cannot retain `ca_file`, `cert_file` or
+`key_file`; panel trust is still mandatory; a certificate pin is 64 hexadecimal
+characters without colons. File-access and secret errors identify the operation
+using fixed field labels, without printing paths or file contents. The debug token
+requires at least 32 characters.
+
+The unit runs `--check-config` automatically with its credentials loaded. A normal
+shell invocation cannot access the unit's private runtime credential directory.
+Successful preflight checks local configuration and files; `/readyz` becomes true
+only after the live panel and MQTT synchronization completes.
+
 ## Local development
 
 Requires Docker Compose, `uv`, and OpenSSL-compatible TLS. Run `uv sync --frozen`, `.venv/bin/python dev/bootstrap.py`, then `docker compose up -d --build` and `.venv/bin/python dev/ha_bootstrap.py`. The bootstrap generates disposable credentials and a 30-day CA under gitignored `dev/generated`. It creates a real HA owner through onboarding and configures MQTT through the config-flow/certificate-upload APIs; it never fabricates `.storage` entries. Credentials and HA tokens are for this lab only.
