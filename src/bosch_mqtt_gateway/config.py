@@ -83,6 +83,7 @@ class PanelConfig(StrictConfig):
 
 class MQTTConfig(StrictConfig):
     host: str
+    transport: Literal["tls", "plaintext"] = "tls"
     port: Port = 8883
     username: str
     password_file: str
@@ -94,6 +95,10 @@ class MQTTConfig(StrictConfig):
 
     @model_validator(mode="after")
     def client_certificate_pair(self) -> Self:
+        if self.transport == "plaintext" and any(
+            value is not None for value in (self.ca_file, self.cert_file, self.key_file)
+        ):
+            raise ValueError("mqtt plaintext transport cannot use TLS certificate settings")
         if bool(self.cert_file) != bool(self.key_file):
             raise ValueError("mqtt cert_file and key_file must be configured together")
         return self

@@ -6,8 +6,9 @@ from Home Assistant and the panel network's other clients.
 
 ## What v1 does
 
-- Publishes retained MQTT discovery, current states and availability over verified
-  TLS, using a publication-only broker identity. It never subscribes to MQTT.
+- Publishes retained MQTT discovery, current states and availability using a
+  publication-only broker identity. Verified TLS is the default; explicit plaintext
+  MQTT is supported on a trusted isolated network. It never subscribes to MQTT.
 - Preserves native Bosch panel/area/point/door/output device grouping and alarm,
   readiness, issue, fault and point states. Outputs and door controls become
   read-only binary sensors; see the [parity matrix](docs/home-assistant.md).
@@ -74,7 +75,8 @@ Use the [deployment guide](docs/deployment.md),
 [hardened systemd unit](deploy/bosch-mqtt-gateway.service) and
 [broker ACL](deploy/mosquitto.acl). Use your existing dedicated MQTT broker with
 separate gateway and HA principals. Keep panel credentials out of HA. Restrict
-network access so only the gateway VM can reach Mode 2.
+network access so only the gateway VM can reach Mode 2. For an isolated Proxmox
+bridge to HAOS, see the [explicit plaintext MQTT option](docs/deployment.md#plaintext-mqtt-on-an-isolated-proxmox-bridge).
 
 Install the locked environment, configure independently verified panel trust,
 and configure it before starting:

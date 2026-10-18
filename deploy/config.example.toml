@@ -18,6 +18,9 @@ server_name = "alarm-panel.example.internal"
 timeout = 60.0
 
 [mqtt]
+transport = "tls" # Default: verified TLS, never automatically downgraded.
+# For a trusted isolated bridge, explicitly set transport = "plaintext", port = 1883,
+# and remove ca_file (and any cert_file/key_file). Panel TLS remains mandatory.
 host = "mqtt.example.internal"
 port = 8883
 username = "gateway"

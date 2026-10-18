@@ -100,7 +100,9 @@ class Publisher:
             self.offline_confirmed = True
 
 
-def tls_context(config: MQTTConfig) -> ssl.SSLContext:
+def tls_context(config: MQTTConfig) -> ssl.SSLContext | None:
+    if config.transport == "plaintext":
+        return None
     context = ssl.create_default_context(cafile=config.ca_file)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     if config.cert_file:

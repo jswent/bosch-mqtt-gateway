@@ -1,0 +1,11 @@
+{
+  "explicit_plaintext_authenticated": true,
+  "qos1_retained_state_delivered": true,
+  "command_negative_puback_rejected": true,
+  "offline_will_retained": true,
+  "wrong_password_denied": true,
+  "default_tls_to_plaintext_failed_no_downgrade": true,
+  "broker_host_binding": "127.0.0.1:ephemeral",
+  "lab_services_unchanged": true,
+  "temporary_broker_removed": true
+}

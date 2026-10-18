@@ -63,7 +63,8 @@ def main() -> None:
         with instance_lock(Path(config.gateway.state_dir)):
             gateway = Gateway(config, values)
             logging.getLogger("bosch_mqtt_gateway.audit").info(
-                "gateway_start commands_enabled=false mqtt_subscriptions=0"
+                "gateway_start commands_enabled=false mqtt_subscriptions=0 mqtt_transport=%s",
+                config.mqtt.transport,
             )
             uvicorn.run(
                 create_app(gateway),

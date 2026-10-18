@@ -1,7 +1,7 @@
 import asyncio
 import ssl
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from paho.mqtt.packettypes import PacketTypes
@@ -9,7 +9,13 @@ from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
 
 from bosch_mqtt_gateway.config import GatewayConfig, MQTTConfig
-from bosch_mqtt_gateway.mqtt import CheckedClient, Publisher, PublishRejected, tls_context
+from bosch_mqtt_gateway.mqtt import (
+    CheckedClient,
+    Publisher,
+    PublishRejected,
+    connect_publisher,
+    tls_context,
+)
 
 
 def publisher():
@@ -77,3 +83,48 @@ def test_mqtt_trust_defaults():
     assert context.check_hostname
     assert context.verify_mode == ssl.CERT_REQUIRED
     assert context.minimum_version >= ssl.TLSVersion.TLSv1_2
+
+
+def test_plaintext_does_not_create_tls_context():
+    config = MQTTConfig(
+        host="broker", username="gateway", password_file="secret", transport="plaintext", port=1883
+    )
+    with patch("bosch_mqtt_gateway.mqtt.ssl.create_default_context") as create:
+        assert tls_context(config) is None
+    create.assert_not_called()
+
+
+@pytest.mark.parametrize("transport,port", [("tls", 8883), ("plaintext", 1883)])
+async def test_connect_constructor_uses_selected_transport(transport, port):
+    config = MQTTConfig(
+        host="broker", username="gateway", password_file="secret", transport=transport, port=port
+    )
+    with patch("bosch_mqtt_gateway.mqtt.CheckedClient") as constructor:
+        client = constructor.return_value.__aenter__.return_value
+        async with connect_publisher(config, GatewayConfig(), "test-password") as pub:
+            await pub.publish("bosch/panel/availability", "offline")
+        assert constructor.call_args.args == ("broker", port)
+        context = constructor.call_args.kwargs["tls_context"]
+        if transport == "tls":
+            assert isinstance(context, ssl.SSLContext)
+            assert context.check_hostname
+            assert context.verify_mode == ssl.CERT_REQUIRED
+        else:
+            assert context is None
+        client.subscribe.assert_not_called()
+        client.publish.assert_awaited_once_with(
+            "bosch/panel/availability", "offline", qos=1, retain=True
+        )
+        client.disconnect_with_will.assert_not_called()
+
+
+async def test_tls_trust_error_never_falls_back_to_plaintext():
+    config = MQTTConfig(host="broker", username="gateway", password_file="secret")
+    with (
+        patch("bosch_mqtt_gateway.mqtt.ssl.create_default_context", side_effect=OSError("bad CA")),
+        patch("bosch_mqtt_gateway.mqtt.CheckedClient") as constructor,
+        pytest.raises(OSError, match="bad CA"),
+    ):
+        async with connect_publisher(config, GatewayConfig(), "test-password"):
+            pytest.fail("TLS preflight must stop connection")
+    constructor.assert_not_called()

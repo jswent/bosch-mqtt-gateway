@@ -98,3 +98,20 @@ they have not been commissioned on the user's dedicated VM. Confirm actual
 firmware responses, certificate identity, account permissions and outage timing
 before production cutover. Initial area readiness remains unknown until the
 panel emits a readiness event; this avoids inventing a safe state.
+
+## Explicit plaintext option — follow-up validation
+
+The subsequent isolated-network MQTT option passed all **149 tests on Python
+3.13.14**, with 93% statement coverage, Ruff lint/format checks and Mypy. Tests
+verify explicit transport selection, unchanged TLS defaults, rejection of
+contradictory TLS-file settings and no automatic downgrade. Panel TLS remains
+mandatory. The earlier Python matrix and HA performance figures above describe
+the original TLS deployment; the full HA benchmark was not rerun for this option.
+
+A [real Mosquitto plaintext probe](validation-results/plaintext.json) verified
+authentication, retained QoS 1 state, rejected commands, retained offline Will
+after negative PUBACK, wrong-password rejection and failure of default TLS against
+a plaintext-only listener. The probe used a separate disposable broker bound to
+an ephemeral loopback port, removed it afterwards, and is included in
+`dev/check-lifecycle.sh`. The existing real TLS negative-PUBACK probe also passed
+after the transport change. No production broker or panel was contacted.

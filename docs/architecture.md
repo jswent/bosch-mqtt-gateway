@@ -9,13 +9,23 @@ boundary. The upstream dependency is pinned and must be re-reviewed on upgrade.
 
 ## Trust boundaries
 
-The panel and MQTT broker are independent authenticated TLS peers. Configure a
+Panel TLS is mandatory. MQTT uses verified TLS by default. Configure a
 trusted panel CA plus hostname, or an independently verified SHA-256 fingerprint
 of the panel's DER leaf certificate. Pin validation occurs before basic-info or
 login traffic. A pin must be obtained through a trusted administrative channel;
 automatically trusting a certificate observed on an untrusted network defeats this
-protection. Broker TLS always validates its certificate chain and hostname, with
-optional client certificates. There is no plaintext or skip-verification setting.
+protection. Broker TLS validates its certificate chain and hostname, with optional
+client certificates; there is no skip-verification or automatic downgrade.
+
+An explicit `mqtt.transport = "plaintext"` permits unencrypted MQTT on an isolated,
+trusted network such as the user's Proxmox bridge between the gateway and HAOS. Set
+`port = 1883` explicitly; the default port remains 8883. Plaintext rejects TLS CA
+and client certificate/key settings so contradictory configuration fails before
+connecting. MQTT passwords and alarm telemetry are visible to anyone able to
+observe this network, and broker identity is not cryptographically authenticated.
+The hypervisor and attached guests are part of the trust boundary. Keep the bridge
+isolated, restrict broker access to the gateway, and preserve authentication and
+ACLs. This option does not change mandatory panel TLS or command restrictions.
 
 The adapter permits only reviewed numeric read, login and event-subscription
 commands at the final Mode 2 send boundary. No actuator method is exposed by the
@@ -90,8 +100,9 @@ trusted forwarding headers. Access logs are disabled to avoid request data
 leakage. Structured JSON logs support DEBUG/INFO/WARNING/ERROR; upstream wire
 logs are suppressed even at DEBUG. Registered secrets are redacted; exception
 payloads and raw frames are never logged. Audit lifecycle messages use a separate
-logger name. Future action auditing belongs behind the future authorization
-boundary, not in generic debug logging.
+logger name, and the startup audit records the selected MQTT transport. Future
+action auditing belongs behind the future authorization boundary, not in generic
+debug logging.
 
 Metrics are bounded in memory and include event counts, reconnects, queue
 overflows, failures and callback-to-broker-ack latency percentiles over the latest

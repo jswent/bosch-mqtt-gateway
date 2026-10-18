@@ -55,3 +55,17 @@ def test_startup_single_worker_no_proxy_or_access_log(tmp_path):
     assert run.call_args.kwargs["workers"] == 1
     assert run.call_args.kwargs["access_log"] is False
     assert run.call_args.kwargs["proxy_headers"] is False
+
+
+def test_plaintext_config_preflight(tmp_path, capsys):
+    path = write_config(tmp_path)
+    path.write_text(
+        path.read_text().replace("[mqtt]\n", '[mqtt]\ntransport = "plaintext"\nport = 1883\n')
+    )
+    with (
+        patch.object(sys, "argv", ["bosch-mqtt-gateway", "--config", str(path), "--check-config"]),
+        patch("bosch_mqtt_gateway.mqtt.ssl.create_default_context") as create,
+    ):
+        main()
+    create.assert_not_called()
+    assert capsys.readouterr().out == "Configuration and secret files are valid\n"

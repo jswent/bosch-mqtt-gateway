@@ -72,7 +72,7 @@ def test_mqtt_client_tls_pair_required():
         MQTTConfig(host="broker", username="gateway", password_file="secret", cert_file="cert")
 
 
-def test_mqtt_plaintext_and_inline_password_forbidden():
+def test_mqtt_legacy_tls_flag_and_inline_password_forbidden():
     with pytest.raises(ValidationError):
         MQTTConfig(host="broker", username="gateway", password="secret", tls=False)
 
@@ -84,3 +84,42 @@ def test_limits_and_namespace_overlap():
         GatewayConfig(topic_prefix="homeassistant/foo")
     with pytest.raises(ValidationError):
         GatewayConfig(reconnect_min=10.0, reconnect_max=1.0)
+
+
+def test_mqtt_transport_is_explicit_and_does_not_change_port():
+    defaults = MQTTConfig(host="broker", username="gateway", password_file="secret")
+    assert defaults.transport == "tls"
+    assert defaults.port == 8883
+    plaintext = MQTTConfig(
+        host="broker", username="gateway", password_file="secret", transport="plaintext"
+    )
+    assert plaintext.port == 8883
+    assert (
+        MQTTConfig(
+            host="broker",
+            username="gateway",
+            password_file="secret",
+            transport="plaintext",
+            port=1883,
+        ).port
+        == 1883
+    )
+
+
+@pytest.mark.parametrize("option", ["ca_file", "cert_file", "key_file"])
+@pytest.mark.parametrize("value", ["certificate.pem", ""])
+def test_plaintext_rejects_tls_settings(option, value):
+    with pytest.raises(ValidationError, match="cannot use TLS"):
+        MQTTConfig(
+            host="broker",
+            username="gateway",
+            password_file="secret",
+            transport="plaintext",
+            port=1883,
+            **{option: value},
+        )
+
+
+def test_unknown_mqtt_transport_rejected():
+    with pytest.raises(ValidationError):
+        MQTTConfig(host="broker", username="gateway", password_file="secret", transport="auto")
