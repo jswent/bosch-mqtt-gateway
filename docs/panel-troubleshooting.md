@@ -26,6 +26,34 @@ DEBUG level additionally records `panel_startup_stage` transitions with elapsed
 time. Startup logs exclude credentials, certificate contents, entity names, wire
 payloads and raw exception messages. Upstream wire logging remains disabled.
 
+## Authentication rejection
+
+`PermissionError` during `authenticating` can mean either a rejected automation
+passcode or that the panel has no free automation sessions. The gateway records a
+separate `panel_authentication_rejected` line with a fixed reason:
+
+- `not_authorized`: the panel returned a denial or an empty authentication result.
+  Privately compare the configured `panel_code` with the panel's Automation
+  Passcode in RPS under Automation / Remote App. For B/G panels this is the
+  automation credential; a separate keypad user code is not used by the library.
+  Preserve case and check for accidentally included spaces or literal quotes.
+- `max_connections`: the panel reported its connection limit. Check for the old
+  native Bosch integration or another Mode 2 client holding a session; release
+  the unneeded client before retrying. This response does not identify the client
+  or establish that the supplied passcode is correct.
+- `unexpected_response`: the authentication result is not one of the supported
+  outcomes. Report the fixed reason and startup stage without enabling wire logs.
+
+The reason labels come from the authentication response; no credentials or raw
+response bytes are logged. A file's byte count alone cannot establish whether its
+contents are the correct automation passcode. The native integration's
+[authentication documentation](https://www.home-assistant.io/integrations/bosch_alarm/#authentication)
+explains which credential each panel family uses.
+
+After correcting `/etc/bosch-mqtt-gateway/secrets/panel_code`, restart the service:
+systemd copies source credentials into the service's private credential directory
+at startup. Do not edit `/run/credentials` or paste a passcode into diagnostics.
+
 ## Check the VM network path
 
 Run these from the Debian gateway VM, replacing `PANEL_IP` with the configured

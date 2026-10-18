@@ -175,6 +175,12 @@ class _ReadOnlyPanel(Panel):
             async with asyncio.timeout(self.owner._timeout):
                 result = await super()._send_command(code, data)
             _validate_read_response(code, bytes(data), result)
+            if code == 0x06 and (not result or result[0] != 1):
+                # Fixed protocol outcomes only: never include credentials or response bytes.
+                reason = {0: "not_authorized", 2: "max_connections"}.get(
+                    result[0] if result else 0, "unexpected_response"
+                )
+                LOG.warning("panel_authentication_rejected reason=%s", reason)
             self._last_msg = datetime.now()
             return result
         except BaseException:

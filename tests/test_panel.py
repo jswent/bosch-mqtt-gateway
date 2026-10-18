@@ -447,3 +447,49 @@ async def test_inventory_startup_diagnostics_and_redaction(monkeypatch, caplog, 
     assert "panel.example" not in caplog.text
     assert "test-certificate" not in caplog.text
     assert all(record.exc_info is None for record in caplog.records)
+
+
+@pytest.mark.parametrize(
+    "response,reason,error",
+    [
+        (b"\x00", "not_authorized", PermissionError),
+        (b"", "not_authorized", PermissionError),
+        (b"\x02", "max_connections", PermissionError),
+        (b"\x01", None, None),
+        (b"\x03", "unexpected_response", IndexError),
+    ],
+)
+async def test_authentication_outcome_logs_fixed_reason_only(caplog, response, reason, error):
+    owner = adapter()
+    panel = owner._panel = _ReadOnlyPanel(owner)
+    connection = panel._connection = ReadOnlyConnection(lambda d: None, lambda: None)
+    transport = Transport()
+    connection.connection_made(transport)
+    secret = "AUTH_SECRET_NEVER_LOGGED"
+    panel._automation_code = secret
+
+    with caplog.at_level(logging.DEBUG):
+        task = asyncio.create_task(panel._authenticate_automation_user(2))
+        await asyncio.sleep(0)
+        assert len(transport.frames) == 1
+        assert transport.frames[0][2] == CMD.AUTHENTICATE
+        # Exercise the actual response decoder, including its empty ACK representation.
+        frame = bytes([1, len(response) + 1, 0xFE]) + response if response else b"\x01\x01\xfc"
+        connection.data_received(frame)
+        if error:
+            with pytest.raises(error):
+                await task
+        else:
+            await task
+
+    records = [record for record in caplog.records if record.name == "bosch_mqtt_gateway.panel"]
+    expected = [] if reason is None else [f"panel_authentication_rejected reason={reason}"]
+    assert [record.getMessage() for record in records] == expected
+    assert all(record.levelno == logging.WARNING and record.exc_info is None for record in records)
+    assert secret not in caplog.text
+    assert secret.encode().hex() not in caplog.text
+    assert transport.frames[0].hex() not in caplog.text
+    assert "Authentication failed" not in caplog.text
+    assert "list index out of range" not in caplog.text
+    assert transport.aborted is (error is not None)
+    connection.close()
