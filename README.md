@@ -90,6 +90,7 @@ The production service obtains secrets through systemd credentials and runs
 to loopback; access protected diagnostics through an SSH tunnel. The persistent
 state directory contains the discovery cleanup journal and must survive upgrades.
 Do not run two instances with the same gateway ID or MQTT namespace.
+For a panel startup timeout, see the [stage and network diagnostics](docs/panel-troubleshooting.md).
 
 Read the [architecture and security boundary](docs/architecture.md) and
 [Home Assistant mapping/migration notes](docs/home-assistant.md) before cutover.

@@ -101,7 +101,7 @@ async def test_disconnect_resolves_pending_request():
         await task
 
 
-async def test_pin_failure_sends_no_protocol_bytes(monkeypatch):
+async def test_pin_failure_sends_no_protocol_bytes(monkeypatch, caplog):
     transport = Transport()
 
     async def create(factory, *args, **kwargs):
@@ -116,6 +116,8 @@ async def test_pin_failure_sends_no_protocol_bytes(monkeypatch):
     assert transport.aborted
     assert transport.frames == []
     assert panel.snapshot() == ()
+    assert "stage=verifying_certificate error_type=PanelError" in caplog.text
+    assert "pin mismatch" not in caplog.text
 
 
 @pytest.mark.parametrize("serial", [123, 0, None])
@@ -345,3 +347,103 @@ def test_complete_reordered_status_and_empty_terminators_remain_valid():
         CMD.LOGIN_REMOTE_USER,
     ):
         _validate_read_response(command, b"", b"")
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_tls_startup_timeout_and_cancellation_diagnostics(monkeypatch, caplog, cancel):
+    entered = asyncio.Event()
+
+    async def create(*args, **kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "create_connection", create)
+    panel = adapter(timeout=30 if cancel else 0.01)
+    with caplog.at_level(logging.DEBUG, logger="bosch_mqtt_gateway.panel"):
+        task = asyncio.create_task(panel.start())
+        await entered.wait()
+        if cancel:
+            task.cancel()
+        with pytest.raises(asyncio.CancelledError if cancel else TimeoutError):
+            await task
+    assert panel._panel is None
+    assert panel.snapshot() == ()
+    assert "panel_startup_start" in caplog.text
+    assert "panel_startup_success" not in caplog.text
+    if cancel:
+        assert "panel_startup_failed" not in caplog.text
+    else:
+        assert "stage=connecting_tls error_type=TimeoutError" in caplog.text
+
+
+@pytest.mark.parametrize("fail", ["timeout", "exception", None])
+async def test_inventory_startup_diagnostics_and_redaction(monkeypatch, caplog, fail):
+    transport = Transport()
+    secret = "NEVER_LOG_AUTH_PAYLOAD"
+
+    async def create(factory, *args, **kwargs):
+        connection = factory()
+        connection.connection_made(transport)
+        return transport, connection
+
+    async def basic(panel):
+        panel.model = PANEL_MODELS[0xA7]
+
+    async def load(panel, selector):
+        if fail == "timeout":
+            await asyncio.Event().wait()
+        if fail == "exception":
+            raise ValueError(secret + " panel.example " + secret.encode().hex())
+        panel.serial_number = 123
+        panel._supports_status = False
+        panel._set_subscription_supported_format = 1
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "create_connection", create)
+    monkeypatch.setattr(_ReadOnlyPanel, "_basicinfo", basic)
+    monkeypatch.setattr(_ReadOnlyPanel, "_authenticate", AsyncMock())
+    monkeypatch.setattr(_ReadOnlyPanel, "load", load)
+    monkeypatch.setattr(_ReadOnlyPanel, "_load_status", AsyncMock())
+    monkeypatch.setattr(_ReadOnlyPanel, "_subscribe", AsyncMock())
+    panel = PanelAdapter(
+        "panel.example",
+        7700,
+        secret,
+        None,
+        certificate_sha256=hashlib.sha256(b"test-certificate").hexdigest(),
+        on_state=lambda s: None,
+        on_availability=lambda s: None,
+        timeout=0.01 if fail == "timeout" else 30,
+    )
+    with caplog.at_level(logging.DEBUG, logger="bosch_mqtt_gateway.panel"):
+        if fail:
+            with pytest.raises(TimeoutError if fail == "timeout" else ValueError):
+                await panel.start()
+            assert transport.aborted
+            assert panel._panel is None
+            expected_type = "TimeoutError" if fail == "timeout" else "ValueError"
+            assert f"stage=loading_inventory error_type={expected_type}" in caplog.text
+            assert "panel_startup_success" not in caplog.text
+        else:
+            await panel.start()
+            assert "panel_startup_success elapsed_seconds=" in caplog.text
+            assert "panel_startup_failed" not in caplog.text
+            stages = [
+                record.args[0]
+                for record in caplog.records
+                if record.msg.startswith("panel_startup_stage")
+            ]
+            assert stages == [
+                "connecting_tls",
+                "verifying_certificate",
+                "reading_identity",
+                "authenticating",
+                "loading_inventory",
+                "reading_status",
+                "subscribing",
+            ]
+            await panel.stop()
+    assert secret not in caplog.text
+    assert secret.encode().hex() not in caplog.text
+    assert "panel.example" not in caplog.text
+    assert "test-certificate" not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)

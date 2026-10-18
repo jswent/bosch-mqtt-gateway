@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import logging
 import ssl
+import time
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -29,6 +30,8 @@ from bosch_alarm_mode2.const import (
 from bosch_alarm_mode2.panel import Area, Panel
 
 from .models import EntityState, PanelInfo
+
+LOG = logging.getLogger(__name__)
 
 # Fixed reviewed numeric values: reads, authentication and event subscription only.
 # No arm/disarm, outputs, doors, clock writes or panel-action permission command.
@@ -305,7 +308,21 @@ class PanelAdapter:
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
         transport = None
+        started = time.monotonic()
+        stage = "connecting_tls"
+
+        def set_stage(value: str) -> None:
+            nonlocal stage
+            stage = value
+            LOG.debug(
+                "panel_startup_stage stage=%s elapsed_seconds=%.3f",
+                stage,
+                time.monotonic() - started,
+            )
+
+        LOG.info("panel_startup_start")
         try:
+            set_stage("connecting_tls")
             async with asyncio.timeout(self._timeout):
                 transport, connection = await asyncio.get_running_loop().create_connection(
                     lambda: ReadOnlyConnection(panel._on_status_update, panel._on_disconnect),
@@ -315,6 +332,7 @@ class PanelAdapter:
                     server_hostname=self._server_name,
                     ssl_handshake_timeout=self._timeout,
                 )
+                set_stage("verifying_certificate")
                 if self._pin:
                     tls = transport.get_extra_info("ssl_object")
                     certificate = tls.getpeercert(binary_form=True) if tls else None
@@ -323,13 +341,18 @@ class PanelAdapter:
                     ):
                         raise PanelError("Panel TLS certificate pin mismatch")
                 panel._connection = connection
+                set_stage("reading_identity")
                 await panel._basicinfo()
+                set_stage("authenticating")
                 await panel._authenticate()
+                set_stage("loading_inventory")
                 await panel.load(Panel.LOAD_EXTENDED_INFO | Panel.LOAD_ENTITIES)
                 if panel.serial_number is None or panel.serial_number <= 0:
                     raise PanelError("Panel does not provide a serial identity")
+                set_stage("reading_status")
                 await panel._load_status()
                 if panel._set_subscription_supported_format:
+                    set_stage("subscribing")
                     await panel._subscribe()
                 if panel._connection is not connection:
                     raise PanelError("Panel disconnected while loading snapshot")
@@ -344,7 +367,15 @@ class PanelAdapter:
                 self._refresh_all()
                 self._on_availability(True)
             self._schedule(self._poll())
-        except BaseException:
+            LOG.info("panel_startup_success elapsed_seconds=%.3f", time.monotonic() - started)
+        except BaseException as exc:
+            if isinstance(exc, Exception):
+                LOG.warning(
+                    "panel_startup_failed stage=%s error_type=%s elapsed_seconds=%.3f",
+                    stage,
+                    type(exc).__name__,
+                    time.monotonic() - started,
+                )
             if transport is not None:
                 transport.abort()
             await self.stop()
